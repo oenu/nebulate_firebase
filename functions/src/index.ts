@@ -9,9 +9,13 @@
 // });
 
 
-// Register Creator
-import register = require("./creator/register");
+// Register Channel
+import register = require("./channel/register");
+
+// Scrape Nebula videos
+import scrapeNebula = require("./scrape/nebula");
 
 
 // Exports
 exports.register = register;
+exports.scrapeNebula = scrapeNebula;
