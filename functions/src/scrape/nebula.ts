@@ -169,8 +169,12 @@ const scrapeNebula = functions.https.onRequest(
         // Add videos to channel collections
         convertedVideos.forEach(async (video: any) => {
           const videoRef = channelRef.
-              collection("nebulaVideos").doc(video.slug);
+              collection("nebulaVideos").doc(video.nebulaVideoId);
           batch.create(videoRef, video);
+        });
+
+        batch.set(channelRef, {
+          lastScrapedNebula: new Date(),
         });
 
         await batch.commit();
