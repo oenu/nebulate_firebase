@@ -7,3 +7,11 @@ import * as functions from "firebase-functions";
 //   functions.logger.info("Hello logs!", {structuredData: true});
 //   response.send("Hello from Firebase!");
 // });
+
+
+// Register Creator
+import register = require("./creator/register");
+
+
+// Exports
+exports.register = register.register;
