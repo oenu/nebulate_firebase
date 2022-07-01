@@ -1,8 +1,7 @@
 import axios from "axios";
-import * as jwt from "jsonwebtoken";
+
 import getKey from "./key";
 import * as admin from "firebase-admin";
-admin.initializeApp();
 
 // Request JWT from nebula api
 const getJWT = (async () => {
