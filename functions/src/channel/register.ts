@@ -71,14 +71,8 @@ const register = functions.https.onRequest(
           part: ["contentDetails", "snippet"],
         }))?.data?.items;
         const youtubeData = youtubeResponse?.at(0);
-        console.log(youtubeData);
-        // if (!youtubeData?.contentDetails) {
-        //   res.status(400).send("Channel not found");
-        //   throw new Error(
-        //       "register: Could not get creator from youtube API"
-        //   );
-        //   return;
-        // }
+
+
         if (youtubeData?.contentDetails?.
             relatedPlaylists?.uploads === undefined) {
           res.status(400).send("Upload playlist not found");
@@ -101,7 +95,9 @@ const register = functions.https.onRequest(
 
         // Register channel in firestore
         await admin.firestore().collection("channels").doc(channelSlug)
-            .set({channel});
+            .create(channel);
+
+
         res.status(200).send("Channel registered");
         return;
       } catch (error) {
