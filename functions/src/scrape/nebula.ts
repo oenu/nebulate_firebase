@@ -86,7 +86,7 @@ const scrapeNebula = functions.https.onRequest(
             const clashingVideos = await admin.firestore()
                 .collection("channels")
                 .doc(channelSlug).collection("nebulaVideos")
-                .where("id", "in", videoIds).get();
+                .where("nebulaVideoId", "in", videoIds).get();
             const clashingVideoIds = clashingVideos.docs
                 .map((video:any) => video.id);
 
