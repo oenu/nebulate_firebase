@@ -2,8 +2,7 @@ import * as admin from "firebase-admin";
 import * as jwt from "jsonwebtoken";
 import getJWT from "./jwt";
 import getKey from "./key";
-import * as functions from "firebase-functions";
-admin.initializeApp();
+
 
 const getAuth = (async () => {
   // Check if the key is undefined, if so, get a new one
