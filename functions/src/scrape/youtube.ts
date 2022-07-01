@@ -169,8 +169,12 @@ const youtubeScrape = functions.https.onRequest(
         // Add videos to channel collections
         convertedVideos.forEach(async (video: any) => {
           const videoRef = channelRef.
-              collection("youtubeVideos").doc(video.slug);
+              collection("youtubeVideos").doc(video.youtubeVideoId);
           batch.create(videoRef, video);
+        });
+
+        batch.set(channelRef, {
+          lastScrapedYoutube: new Date(),
         });
 
         await batch.commit();
