@@ -79,6 +79,7 @@ const match = functions.https.onRequest(
         const existingRef = await admin.firestore().collection("channels").
             doc(channelSlug).collection("nebulaVideos");
         // const existingVideos = existingRef.docs.map(doc => doc.data())
+        let matchCounter = 0;
         for (const matchSet of matchedVideos) {
           const {nebulaVideo, youtubeMatches} = matchSet;
 
@@ -95,6 +96,7 @@ const match = functions.https.onRequest(
               const videoRef = existingRef.doc(nebulaVideo.nebulaVideoId);
               await videoRef.update({youtubeVideoId: youtubeVideo.
                   youtubeVideoId, matchStrength: score, matched: true});
+              matchCounter++;
             } else {
             // If another nebula video is matched to this youtube video, compare
             // the scores and update the database if the new score is lower
@@ -103,11 +105,14 @@ const match = functions.https.onRequest(
               if (existingVideo.matchStrength > score) {
                 await videoRef.update({youtubeVideoId: youtubeVideo.
                     youtubeVideoId, matchStrength: score, matched: true});
+                matchCounter++;
               }
             }
           }
         }
-        res.status(200).send("Match complete");
+
+        console.info(`Match: ${matchCounter} matches added`);
+        res.status(200).send(`Match complete: ${matchCounter} matches added`);
       } catch (error) {
         if (res.headersSent) res.status(500).send(error);
         console.error(error);
