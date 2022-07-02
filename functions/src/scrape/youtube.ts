@@ -14,10 +14,12 @@ const youtubeScrape = functions.https.onRequest(
     async (req: functions.Request, res: functions.Response) => {
       try {
         const channelSlug = req.body.channelSlug;
-        const deepScrape = req.body;
-        if (channelSlug === undefined) {
-          res.status(400).send("channelSlug is undefined");
-          return;
+        let deepScrape = req.body.deepScrape;
+        if (deepScrape === "true") {
+          console.log("Deep scrape enabled - string");
+          deepScrape = true;
+        } else {
+          deepScrape = false;
         }
 
         // Check channel exists
@@ -27,6 +29,12 @@ const youtubeScrape = functions.https.onRequest(
           res.status(400).send("Channel not found");
           return;
         }
+
+        // Get existing videos
+        const existingDoc = await admin.firestore().
+            collection("channels").doc(channelSlug).
+            collection("youtubeVideos").get();
+        const existingMap = existingDoc.docs.map((doc:any) => doc.data());
 
 
         // Get auth token
@@ -56,8 +64,7 @@ const youtubeScrape = functions.https.onRequest(
           if (response.data.items) {
             // Add the videos to the videoBuffer
             const newEpisodes = response.data.items;
-            newEpisodes.forEach((episode) => {
-              videoBuffer.push(episode);
+            newEpisodes.forEach(() => {
               scrapedVideos++;
             });
 
@@ -73,26 +80,20 @@ const youtubeScrape = functions.https.onRequest(
           * is already in the Video collection
           */
 
-            if (deepScrape === false) {
+            if (deepScrape === false || deepScrape === undefined) {
               console.debug("youtube: Only scraping new videos");
 
-              // Get the video ids from the response
+              // Check if the video is already in the collection
+              const existingVideoIds = existingMap.map(
+                  (existingVideo:any) => existingVideo.youtubeVideoId);
+              console.log(`youtube: ${existingVideoIds.length
+              } videos already in collection`);
 
-              const videoIds = newEpisodes.map((video:any) => video.
-                  contentDetails.videoId);
 
-              // Get the videos from the creator
-              const clashingVideos = await admin.firestore()
-                  .collection("channels")
-                  .doc(channelSlug).collection("youtubeVideos")
-                  .where("youtubeVideoId", "in", videoIds).get();
-              const clashingVideoIds = clashingVideos.docs
-                  .map((video:any) => video.id);
-
-              // Remove the clashing videos from the new videos
-              const newVideos = newEpisodes.
-                  filter((video:any) => !clashingVideoIds.includes(video.
-                      contentDetails.videoId));
+              // Remove the existing videos from the new episodes
+              const newVideos = newEpisodes.filter(
+                  (video:any) => !existingVideoIds.includes(
+                      video.contentDetails.videoId));
 
               // // If no new videos were found, break the loop
               if (newVideos.length === 0) {
@@ -111,6 +112,7 @@ const youtubeScrape = functions.https.onRequest(
                     // eslint-disable-next-line max-len
                     `youtube: ${newVideos.length} new videos found for: ${channelSlug}`
                 );
+                videoBuffer.push(...newVideos);
                 break;
               }
 
@@ -120,6 +122,7 @@ const youtubeScrape = functions.https.onRequest(
                     `youtube: All new videos found: ${
                       channelSlug}, scraping again`
                 );
+                videoBuffer.push(...newVideos);
               }
             }
 
@@ -132,8 +135,12 @@ const youtubeScrape = functions.https.onRequest(
           }
         }
         if (videoBuffer.length === 0) {
-          throw new Error(`youtube: No videos found for ${channelSlug}`);
+          console.error(`youtube: No videos found for ${channelSlug}`);
+          res.send("No new videos found for" + channelSlug);
+          return;
         }
+
+        // Remove videos that are already in the database
 
 
         // Remove undefined videos
@@ -173,7 +180,7 @@ const youtubeScrape = functions.https.onRequest(
           batch.create(videoRef, video);
         });
 
-        batch.set(channelRef, {
+        batch.update(channelRef, {
           lastScrapedYoutube: new Date(),
         });
 

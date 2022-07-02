@@ -11,11 +11,20 @@ const scrapeNebula = functions.https.onRequest(
     async (req: functions.Request, res: functions.Response) => {
       try {
         const channelSlug = req.body.channelSlug;
-        const deepScrape = req.body.deepScrape;
+
+        let deepScrape = req.body.deepScrape;
+        if (deepScrape === "true") {
+          console.log("Deep scrape enabled - string");
+          deepScrape = true;
+        } else {
+          deepScrape = false;
+        }
+
         if (channelSlug === undefined) {
           res.status(400).send("channelSlug is undefined");
           return;
         }
+
 
         // Check channel exists
         const channelDoc = await admin.firestore().collection("channels").
@@ -24,6 +33,12 @@ const scrapeNebula = functions.https.onRequest(
           res.status(400).send("Channel not found");
           return;
         }
+
+        const existingDoc = await admin.firestore().
+            collection("channels").doc(channelSlug).
+            collection("nebulaVideos").get();
+        const existingMap = existingDoc.docs.map((doc:any) => doc.data());
+        console.log(existingMap.at(0));
 
         // Get auth token
         const {token} = await getAuth();
@@ -67,36 +82,33 @@ const scrapeNebula = functions.https.onRequest(
           if (!response?.data) break;
           // Add the videos from the response to the buffer
           const newEpisodes = response.data.episodes.results;
-          videoBuffer.push(...newEpisodes);
           scrapedVideos += newEpisodes.length;
           urlBuffer = response.data.episodes.next;
-
+          console.debug(`nebula: Scraped ${newEpisodes.length} videos`);
 
           /**
            * If deepScrape is true, check if the video
           * is already in the Video collection
           */
 
-          if (deepScrape === false) {
+          if (deepScrape === false || deepScrape === undefined) {
             console.debug("nebula: Only scraping new videos");
-            // Get the video ids from the response
-            const videoIds = newEpisodes.map((video:any) => video.id);
 
-            // Get the videos from the creator
-            const clashingVideos = await admin.firestore()
-                .collection("channels")
-                .doc(channelSlug).collection("nebulaVideos")
-                .where("nebulaVideoId", "in", videoIds).get();
-            const clashingVideoIds = clashingVideos.docs
-                .map((video:any) => video.id);
+            // Check if the video is already in the collection
+            const existingVideoIds = existingMap.map(
+                (existingVideo:any) => existingVideo.nebulaVideoId);
+            console.log(`nebula: ${existingVideoIds.length
+            } videos already in collection`);
 
-            // Remove the clashing videos from the new videos
-            const newVideos = newEpisodes.
-                filter((video:any) => !clashingVideoIds.includes(video.id));
+
+            // Remove the existing videos from the new episodes
+            const newVideos = newEpisodes.filter(
+                (video:any) => !existingVideoIds.includes(video.id));
+
 
             // If no new videos were found, break the loop
             if (newVideos.length === 0) {
-              console.debug(`nebula: No new videos found for ${channelSlug}`);
+              console.log(`nebula: No new videos found for ${channelSlug}`);
               break;
             }
 
@@ -110,8 +122,10 @@ const scrapeNebula = functions.https.onRequest(
                   // eslint-disable-next-line max-len
                   `nebula: ${newVideos.length} new videos found for: ${channelSlug}`
               );
+              videoBuffer.push(...newVideos);
               break;
             }
+
 
             // If all videos are new, continue to the next page
             if (newVideos.length === newEpisodes.length) {
@@ -119,6 +133,7 @@ const scrapeNebula = functions.https.onRequest(
                   `nebula: All new videos found: ${
                     channelSlug}, scraping again`
               );
+              videoBuffer.push(...newVideos);
             }
           }
 
@@ -129,7 +144,9 @@ const scrapeNebula = functions.https.onRequest(
           }
         }
         if (videoBuffer.length === 0) {
-          throw new Error(`nebula: No videos found for ${channelSlug}`);
+          console.error(`nebula: No videos found for ${channelSlug}`);
+          res.send("No new videos found for" + channelSlug);
+          return;
         }
 
         // Remove undefined videos
@@ -173,7 +190,7 @@ const scrapeNebula = functions.https.onRequest(
           batch.create(videoRef, video);
         });
 
-        batch.set(channelRef, {
+        batch.update(channelRef, {
           lastScrapedNebula: new Date(),
         });
 
@@ -181,6 +198,7 @@ const scrapeNebula = functions.https.onRequest(
         console.debug(`nebula: Added ${
           convertedVideos.length} videos to ${
           channelSlug}`);
+
 
         res.send(`Scraped ${convertedVideos.
             length} videos for ${channelSlug}`);

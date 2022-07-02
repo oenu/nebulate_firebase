@@ -80,7 +80,7 @@ const generateTable = functions.https.onRequest(async () => {
 
   // Store Lookup Table
   const lookupTableRef = admin.firestore().collection("lookupTables");
-  await lookupTableRef.doc(lookupTable.id).set(lookupTable);
+  await lookupTableRef.doc(lookupTable.id).create(lookupTable);
   console.log("table: Lookup table generated");
 }
 );
