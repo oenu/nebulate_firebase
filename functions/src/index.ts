@@ -1,11 +1,4 @@
 
-import {initializeApp} from "firebase-admin/app";
-import {getFirestore} from "firebase-admin/firestore";
-initializeApp();
-
-export const db = getFirestore();
-
-
 // Register Channel
 import register = require("./channel/register");
 
