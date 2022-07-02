@@ -16,6 +16,18 @@ import {youtubeIds} from "../channelMap";
 
 const register = functions.https.onRequest(
     async (req: functions.Request, res: functions.Response) => {
+      // Check for auth
+      const functionAuth = req.body.functionAuth;
+      if (!functionAuth) {
+        res.status(400).send("Missing functionAuth");
+        return;
+      } else {
+        if (functionAuth !== process.env.functionAuth) {
+          res.status(401).send("Invalid functionAuth");
+          return;
+        }
+      }
+
       try {
         const channelSlug = req.body.channelSlug;
 

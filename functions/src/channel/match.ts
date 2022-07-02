@@ -5,6 +5,17 @@ import Fuse from "fuse.js";
 
 const match = functions.https.onRequest(
     async (req: functions.Request, res: functions.Response) => {
+      const functionAuth = req.body.functionAuth;
+      if (!functionAuth) {
+        res.status(400).send("Missing functionAuth");
+        return;
+      } else {
+        if (functionAuth !== process.env.functionAuth) {
+          res.status(401).send("Invalid functionAuth");
+          return;
+        }
+      }
+
       try {
         const channelSlug = req.body.channelSlug;
 

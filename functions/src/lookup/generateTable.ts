@@ -16,7 +16,20 @@ interface ChannelEntry {
   slug: string;
 }
 
-const generateTable = functions.https.onRequest(async () => {
+const generateTable = functions.https.onRequest(async (
+    req: functions.Request, res: functions.Response) => {
+  // Check for auth
+  const functionAuth = req.body.functionAuth;
+  if (!functionAuth) {
+    res.status(400).send("Missing functionAuth");
+    return;
+  } else {
+    if (functionAuth !== process.env.functionAuth) {
+      res.status(401).send("Invalid functionAuth");
+      return;
+    }
+  }
+
   // Get all channels
   const channelRef = admin.firestore().collection("channels");
   const channels = await (await admin.firestore().collection("channels"))
