@@ -21,6 +21,7 @@ const generateTable = functions.https.onRequest(async () => {
   const channelRef = admin.firestore().collection("channels");
   const channels = await (await admin.firestore().collection("channels"))
       .get();
+  console.log(channels);
 
   const channelEntries = [];
   for (const channel of channels.docs) {
@@ -34,6 +35,8 @@ const generateTable = functions.https.onRequest(async () => {
         where("matched", "==", true).get();
     const matchedNebulaVideosArray = matchedNebulaVideos.docs.map(
         (doc) => doc.data());
+    console.log(`nebula table: ${channelData.slug} 
+    matched: ${matchedNebulaVideosArray.length}`);
 
     // Get Youtube Videos
     const youtubeVideosRef = channelRef.doc(channelData.slug).
@@ -41,6 +44,7 @@ const generateTable = functions.https.onRequest(async () => {
     const youtubeVideos = await youtubeVideosRef.get();
     const youtubeVideosArray = youtubeVideos.docs.
         map((doc) => doc.data());
+
 
     // Get the unmatched youtube videos
     const unmatchedYoutubeVideos = youtubeVideosArray.filter(
@@ -53,7 +57,8 @@ const generateTable = functions.https.onRequest(async () => {
           );
         }
     );
-
+    console.log(`youtube table: ${channelData.slug}
+    unmatched: ${unmatchedYoutubeVideos.length}`);
     // Create Channel Entry
     const channelEntry: ChannelEntry = {
       matched: matchedNebulaVideosArray.map(
