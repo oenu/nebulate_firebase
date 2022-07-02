@@ -173,7 +173,7 @@ const scrapeNebula = functions.https.onRequest(
           batch.create(videoRef, video);
         });
 
-        batch.set(channelRef, {
+        batch.update(channelRef, {
           lastScrapedNebula: new Date(),
         });
 

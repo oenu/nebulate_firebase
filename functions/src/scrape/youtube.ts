@@ -173,7 +173,7 @@ const youtubeScrape = functions.https.onRequest(
           batch.create(videoRef, video);
         });
 
-        batch.set(channelRef, {
+        batch.update(channelRef, {
           lastScrapedYoutube: new Date(),
         });
 

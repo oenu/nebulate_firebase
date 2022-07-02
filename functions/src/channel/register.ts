@@ -21,7 +21,7 @@ const register = functions.https.onRequest(
 
         // Check if channelSlug is undefined
         if (channelSlug === undefined) {
-          res.status(400).send("channelSlug is undefined");
+          res.status(501).send("channelSlug is undefined");
           return;
         }
 
@@ -29,7 +29,7 @@ const register = functions.https.onRequest(
         const channelDoc = await admin.firestore().collection("channels")
             .doc(channelSlug).get();
         if (channelDoc.exists) {
-          res.status(400).send("Channel already registered");
+          res.status(501).send("Channel already registered");
           return;
         }
 
@@ -46,7 +46,7 @@ const register = functions.https.onRequest(
             },
           });
         } catch (error) {
-          res.status(400).send("Channel not found");
+          res.status(501).send("Channel not found");
           return;
         }
 
@@ -60,7 +60,7 @@ const register = functions.https.onRequest(
         const youtubeId = youtubeIds.
             find((channel) => channel.slug === channelSlug)?.youtube_id;
         if (youtubeId === undefined || youtubeId === null) {
-          res.status(400).send("Channel not found");
+          res.status(501).send("Channel not found");
           return;
         }
 
@@ -75,7 +75,7 @@ const register = functions.https.onRequest(
 
         if (youtubeData?.contentDetails?.
             relatedPlaylists?.uploads === undefined) {
-          res.status(400).send("Upload playlist not found");
+          res.status(501).send("Upload playlist not found");
           return;
         }
 
