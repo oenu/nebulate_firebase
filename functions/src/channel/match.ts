@@ -10,7 +10,7 @@ const match = functions.https.onRequest(
         res.status(400).send("Missing functionAuth");
         return;
       } else {
-        if (functionAuth !== process.env.functionAuth) {
+        if (functionAuth !== process.env.FUNCTION_AUTH) {
           res.status(401).send("Invalid functionAuth");
           return;
         }

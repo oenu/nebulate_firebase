@@ -15,7 +15,9 @@ const scrapeNebula = functions.https.onRequest(
         res.status(400).send("Missing functionAuth");
         return;
       } else {
-        if (functionAuth !== process.env.functionAuth) {
+        console.log("functionAuth:", functionAuth);
+        console.log("env.FUNCTION_AUTH:", process.env.FUNCTION_AUTH);
+        if (functionAuth !== process.env.FUNCTION_AUTH) {
           res.status(401).send("Invalid functionAuth");
           return;
         }
@@ -40,18 +42,18 @@ const scrapeNebula = functions.https.onRequest(
 
 
         // Check channel exists
-        const channelDoc = await admin.firestore().collection("channels").
-            doc(channelSlug).get();
+        const channelRef = admin.firestore().
+            collection("channels").doc(channelSlug);
+        const channelDoc = await channelRef.get();
         if (!channelDoc.exists) {
           res.status(400).send("Channel not found");
           return;
         }
 
-        const existingDoc = await admin.firestore().
-            collection("channels").doc(channelSlug).
-            collection("nebulaVideos").get();
-        const existingMap = existingDoc.docs.map((doc:any) => doc.data());
-        console.log(existingMap.at(0));
+        // Get existing videos
+        const existingVideoIds = channelDoc.data()?.nebulaVideos.map(
+            (video: NebulaVideo) => video.nebulaVideoId);
+        console.log("Existing video ids:", existingVideoIds);
 
         // Get auth token
         const {token} = await getAuth();
@@ -108,10 +110,10 @@ const scrapeNebula = functions.https.onRequest(
             console.debug("nebula: Only scraping new videos");
 
             // Check if the video is already in the collection
-            const existingVideoIds = existingMap.map(
-                (existingVideo:any) => existingVideo.nebulaVideoId);
-            console.log(`nebula: ${existingVideoIds.length
-            } videos already in collection`);
+            // const existingVideoIds = existingMap.map(
+            //     (existingVideo:any) => existingVideo.nebulaVideoId);
+            // console.log(`nebula: ${existingVideoIds.length
+            // } videos already in collection`);
 
 
             // Remove the existing videos from the new episodes
@@ -193,8 +195,7 @@ const scrapeNebula = functions.https.onRequest(
 
         // Add the videos to the database
         const batch = admin.firestore().batch();
-        const channelRef = admin.firestore()
-            .collection("channels").doc(channelSlug);
+
 
         // Add videos to channel collections
         convertedVideos.forEach(async (video: any) => {
@@ -202,6 +203,12 @@ const scrapeNebula = functions.https.onRequest(
               collection("nebulaVideos").doc(video.nebulaVideoId);
           batch.create(videoRef, video);
         });
+
+        // Add Videos to channel array
+        channelRef.update({
+          nebulaVideos: admin.firestore.FieldValue.
+              arrayUnion(...convertedVideos.map(
+                  (video: any) => video.nebulaVideoId))}),
 
         batch.update(channelRef, {
           lastScrapedNebula: new Date(),
