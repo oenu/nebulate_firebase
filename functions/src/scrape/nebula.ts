@@ -61,9 +61,9 @@ const scrapeNebula = functions.https.onRequest(
           console.log("No videos yet");
         } else {
           existingVideoIds = channelDoc.data()?.nebulaVideos.map(
-              (video: NebulaVideo) => video);
+              (video: NebulaVideo) => video.nebulaVideoId);
 
-          console.log("Existing video ids:", existingVideoIds);
+          console.log("Existing video ids:", existingVideoIds.length);
         }
 
         // Get auth token
@@ -199,27 +199,25 @@ const scrapeNebula = functions.https.onRequest(
         );
 
         // Add the videos to the database
-        const batch = admin.firestore().batch();
 
 
-        // Add videos to channel collections
-        convertedVideos.forEach(async (video: any) => {
-          const videoRef = channelRef.
-              collection("nebulaVideos").doc(video.nebulaVideoId);
-          batch.create(videoRef, video);
-        });
+        // // Add videos to channel array
+        // convertedVideos.forEach(async (video: any) => {
+        //   const videoRef = channelRef.
+        //       collection("nebulaVideos").doc(video.nebulaVideoId);
+        //   batch.create(videoRef, video);
+        // });
+
 
         // Add Videos to channel array
         channelRef.update({
           nebulaVideos: admin.firestore.FieldValue.
-              arrayUnion(...convertedVideos.map(
-                  (video: any) => video.nebulaVideoId))}),
-
-        batch.update(channelRef, {
+              arrayUnion(...convertedVideos),
           lastScrapedNebula: new Date(),
-        });
+        },
+        );
 
-        await batch.commit();
+
         console.debug(`nebula: Added ${
           convertedVideos.length} videos to ${
           channelSlug}`);

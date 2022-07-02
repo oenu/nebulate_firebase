@@ -54,9 +54,9 @@ const youtubeScrape = functions.https.onRequest(
           console.log("No videos yet");
         } else {
           existingVideoIds = channelDoc.data()?.youtubeVideos.map(
-              (video: YoutubeVideo) => video);
+              (video: YoutubeVideo) => video.youtubeVideoId);
 
-          console.log("Existing video ids:", existingVideoIds);
+          console.log("Existing videos:", existingVideoIds.length);
         }
 
         // Get auth token
@@ -185,29 +185,20 @@ const youtubeScrape = functions.https.onRequest(
         );
 
         // Add the videos to the database
-        const batch = admin.firestore().batch();
+
         const channelRef = admin.firestore()
             .collection("channels").doc(channelSlug);
 
-        // Add videos to channel collections
-        convertedVideos.forEach(async (video: any) => {
-          const videoRef = channelRef.
-              collection("youtubeVideos").doc(video.youtubeVideoId);
-          batch.create(videoRef, video);
-        });
 
         // Add Videos to channel array
         channelRef.update({
           youtubeVideos: admin.firestore.FieldValue.
-              arrayUnion(...convertedVideos.map(
-                  (video: any) => video.youtubeVideoId))}),
-
-
-        batch.update(channelRef, {
+              arrayUnion(...convertedVideos),
           lastScrapedYoutube: new Date(),
+
         });
 
-        await batch.commit();
+
         console.debug(`youtube: Added ${
           convertedVideos.length} videos to ${
           channelSlug}`);

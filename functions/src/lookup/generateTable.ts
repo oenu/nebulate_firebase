@@ -100,6 +100,7 @@ const generateTable = functions.https.onRequest(async (
   const lookupTableRef = admin.firestore().collection("lookupTables");
   await lookupTableRef.doc(lookupTable.id).create(lookupTable);
   console.log("table: Lookup table generated");
+  return;
 }
 );
 export default generateTable;
