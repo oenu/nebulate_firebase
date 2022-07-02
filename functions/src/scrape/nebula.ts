@@ -49,9 +49,22 @@ const scrapeNebula = functions.https.onRequest(
         }
 
         // Get existing videos
-        const existingVideoIds = channelDoc.data()?.nebulaVideos.map(
-            (video: NebulaVideo) => video.nebulaVideoId);
-        console.log("Existing video ids:", existingVideoIds);
+        const channelData = channelDoc.data();
+        if (channelData === undefined) {
+          res.status(400).send("Channel data is undefined");
+          return;
+        }
+
+        let existingVideoIds: string[] = [];
+        if (channelData.nebulaVideos === undefined) {
+          // No videos yet
+          console.log("No videos yet");
+        } else {
+          existingVideoIds = channelDoc.data()?.nebulaVideos.map(
+              (video: NebulaVideo) => video);
+
+          console.log("Existing video ids:", existingVideoIds);
+        }
 
         // Get auth token
         const {token} = await getAuth();
@@ -106,12 +119,6 @@ const scrapeNebula = functions.https.onRequest(
 
           if (deepScrape === false || deepScrape === undefined) {
             console.debug("nebula: Only scraping new videos");
-
-            // Check if the video is already in the collection
-            // const existingVideoIds = existingMap.map(
-            //     (existingVideo:any) => existingVideo.nebulaVideoId);
-            // console.log(`nebula: ${existingVideoIds.length
-            // } videos already in collection`);
 
 
             // Remove the existing videos from the new episodes

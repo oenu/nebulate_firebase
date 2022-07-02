@@ -42,12 +42,22 @@ const youtubeScrape = functions.https.onRequest(
           return;
         }
 
-        // Get existing videos
-        const existingDoc = await admin.firestore().
-            collection("channels").doc(channelSlug).
-            collection("youtubeVideos").get();
-        const existingMap = existingDoc.docs.map((doc:any) => doc.data());
+        const channelData = channelDoc.data();
+        if (channelData === undefined) {
+          res.status(400).send("Channel data is undefined");
+          return;
+        }
 
+        let existingVideoIds: string[] = [];
+        if (channelData.youtubeVideos === undefined) {
+          // No videos yet
+          console.log("No videos yet");
+        } else {
+          existingVideoIds = channelDoc.data()?.youtubeVideos.map(
+              (video: YoutubeVideo) => video);
+
+          console.log("Existing video ids:", existingVideoIds);
+        }
 
         // Get auth token
         const videoBuffer: any = [];
@@ -94,12 +104,6 @@ const youtubeScrape = functions.https.onRequest(
 
             if (deepScrape === false || deepScrape === undefined) {
               console.debug("youtube: Only scraping new videos");
-
-              // Check if the video is already in the collection
-              const existingVideoIds = existingMap.map(
-                  (existingVideo:any) => existingVideo.youtubeVideoId);
-              console.log(`youtube: ${existingVideoIds.length
-              } videos already in collection`);
 
 
               // Remove the existing videos from the new episodes
@@ -191,6 +195,13 @@ const youtubeScrape = functions.https.onRequest(
               collection("youtubeVideos").doc(video.youtubeVideoId);
           batch.create(videoRef, video);
         });
+
+        // Add Videos to channel array
+        channelRef.update({
+          youtubeVideos: admin.firestore.FieldValue.
+              arrayUnion(...convertedVideos.map(
+                  (video: any) => video.youtubeVideoId))}),
+
 
         batch.update(channelRef, {
           lastScrapedYoutube: new Date(),
