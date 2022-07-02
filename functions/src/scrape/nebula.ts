@@ -15,8 +15,6 @@ const scrapeNebula = functions.https.onRequest(
         res.status(400).send("Missing functionAuth");
         return;
       } else {
-        console.log("functionAuth:", functionAuth);
-        console.log("env.FUNCTION_AUTH:", process.env.FUNCTION_AUTH);
         if (functionAuth !== process.env.FUNCTION_AUTH) {
           res.status(401).send("Invalid functionAuth");
           return;
