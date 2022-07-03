@@ -4,14 +4,14 @@ import {NebulaVideo, YoutubeVideo} from "../types";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {v4: uuidv4} = require("uuid");
 
-  // Generate lookup table
-  interface LookupTable {
+// Generate lookup table
+export interface LookupTable {
   channels: ChannelEntry[];
   generatedAt: Date;
   id: string;
 }
 
-interface ChannelEntry {
+export interface ChannelEntry {
   matched: (string | undefined)[] ;
   not_matched: string[];
   slug: string;
