@@ -2,12 +2,11 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {NebulaVideo, YoutubeVideo} from "../types";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const {v4: uuidv4} = require("uuid");
+
 
 // Generate lookup table
 export interface LookupTable {
   channels: ChannelEntry[];
-  id: string;
 }
 
 export interface ChannelEntry {
@@ -16,7 +15,6 @@ export interface ChannelEntry {
   slug: string;
 }
 
-// TODO: If table is same as last, dont update in file
 
 const generateTable = functions.https.onRequest(async (
     req: functions.Request, res: functions.Response) => {
@@ -93,12 +91,12 @@ const generateTable = functions.https.onRequest(async (
   // Create Lookup Table
   const lookupTable: LookupTable = {
     channels: channelEntries,
-    id: uuidv4(),
+
   };
 
   // Store Lookup Table
   const lookupTableRef = admin.firestore().collection("lookupTables");
-  await lookupTableRef.doc(lookupTable.id).create(lookupTable);
+  await lookupTableRef.doc("lookupTable").create(lookupTable);
   console.log("table: Lookup table generated");
   res.status(200).send("table: Lookup table generated");
   return;
