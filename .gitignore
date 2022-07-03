@@ -64,3 +64,4 @@ node_modules/
 
 # dotenv environment variables file
 .env
+functions/src/nebulateworker.2022-07-02.private-key.pem
