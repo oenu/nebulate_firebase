@@ -1,4 +1,5 @@
 import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 import {Octokit,
   // App
 } from "octokit";
@@ -29,25 +30,17 @@ const uploadTable = functions.https.onRequest(async (
     const octokit = new Octokit({
       auth: process.env.HOST_TOKEN,
     });
+    const anonKit = new Octokit();
 
-    const table = {
-      matched: ["thing1", "thing2", "thing3"],
-      not_matched: [""],
-      id: "string2",
-    };
+    // Get table from firestore
+    const existingTable = await (await admin.firestore()
+        .collection("lookupTables").doc("lookupTable").get());
+
 
     // Generate the a string version of the table
-    const tableString = JSON.stringify(table);
+    const tableString = JSON.stringify(existingTable.data());
+    const {encoded, hash} = formatForGithub(tableString);
 
-    // Generate base64 encoded string for transmission
-    const encoded = Base64.encode(tableString);
-
-    // Get byte length of string
-    const length = (new TextEncoder().encode(tableString)).length;
-    // Combine with git properties to create SHA1
-    const fullString = `blob ${length}\0` + tableString;
-    const hash = crypto.createHash("sha1").
-        update(fullString).digest("hex");
 
     // Get the current file
     const currentTable = await octokit.rest.repos.getContent({
@@ -59,27 +52,30 @@ const uploadTable = functions.https.onRequest(async (
 
 
     if ("content" in currentTable.data) {
-      console.log(currentTable.data.sha, hash);
+      // Check if new table hashes match - sanity check
       if (currentTable.data.sha === hash) {
         console.log("No change");
         res.send("No change");
         return;
       }
-      console.log("sending new table");
-      const newTable = await octokit.rest.repos.createOrUpdateFileContents({
+
+      // Update the table
+      console.log("updating with new table");
+      const newTable = await anonKit.rest.repos.createOrUpdateFileContents({
         owner: "oenu",
         repo: "lookup-table",
         path: "lookup-table.json",
         message: "Update lookup table",
         content: encoded,
         sha: currentTable.data.sha,
+        name: "Anonymous",
+        email: "anon@g.co",
       });
 
       if (newTable.status === 200) {
         console.log("Table updated");
         res.send("Table updated");
       }
-      console.log(newTable);
     } else {
       console.log("sending new table");
       const newTable = await octokit.rest.repos.createOrUpdateFileContents({
@@ -89,6 +85,7 @@ const uploadTable = functions.https.onRequest(async (
         message: "Update lookup table",
         content: encoded,
       });
+
 
       if (newTable.status === 201) {
         res.status(200).send("Table sent");
@@ -106,6 +103,19 @@ const uploadTable = functions.https.onRequest(async (
   if (!res.headersSent) res.send("catch");
   return;
 });
+
+const formatForGithub = (tableString: string) => {
+  // Generate base64 encoded string for transmission
+  const encoded = Base64.encode(tableString);
+
+  // Get byte length of string
+  const length = (new TextEncoder().encode(tableString)).length;
+  // Combine with git properties to create SHA1
+  const fullString = `blob ${length}\0` + tableString;
+  const hash = crypto.createHash("sha1").
+      update(fullString).digest("hex");
+  return {encoded, hash};
+};
 
 
 export default uploadTable;
