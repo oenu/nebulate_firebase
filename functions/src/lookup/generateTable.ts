@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import {NebulaVideo, YoutubeVideo} from "../types";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {v4: uuidv4} = require("uuid");
 
@@ -11,10 +12,12 @@ const {v4: uuidv4} = require("uuid");
 }
 
 interface ChannelEntry {
-  matched: string[];
+  matched: (string | undefined)[] ;
   not_matched: string[];
   slug: string;
 }
+
+// TODO: If table is same as last, dont update in file
 
 const generateTable = functions.https.onRequest(async (
     req: functions.Request, res: functions.Response) => {
@@ -31,7 +34,6 @@ const generateTable = functions.https.onRequest(async (
   }
 
   // Get all channels
-  const channelRef = admin.firestore().collection("channels");
   const channels = await (await admin.firestore().collection("channels"))
       .get();
   console.log(channels);
@@ -39,30 +41,30 @@ const generateTable = functions.https.onRequest(async (
   const channelEntries = [];
   for (const channel of channels.docs) {
     const channelData = channel.data();
+    console.log(channelData.nebulaVideos[0]);
+    console.log(channelData.youtubeVideos[0]);
     console.log(`table: Processing ${channelData.slug}`);
 
     // Get Nebula Videos
-    const nebulaVideosRef = channelRef.doc(channelData.slug).
-        collection("nebulaVideos");
-    const matchedNebulaVideos = await nebulaVideosRef.
-        where("matched", "==", true).get();
-    const matchedNebulaVideosArray = matchedNebulaVideos.docs.map(
-        (doc) => doc.data());
+
+    const matchedNebulaVideos: NebulaVideo[] = channelData.
+        nebulaVideos.filter(
+            (nebulaVideo: NebulaVideo) => {
+              return nebulaVideo.youtubeVideoId;
+            });
+    // matchedNebulaVideos.filter((x) => x !== undefined);
+
     console.log(`nebula table: ${channelData.slug} 
-    matched: ${matchedNebulaVideosArray.length}`);
+    matched: ${matchedNebulaVideos.length}`);
 
     // Get Youtube Videos
-    const youtubeVideosRef = channelRef.doc(channelData.slug).
-        collection("youtubeVideos");
-    const youtubeVideos = await youtubeVideosRef.get();
-    const youtubeVideosArray = youtubeVideos.docs.
-        map((doc) => doc.data());
+    const youtubeVideosArray = channel.data().youtubeVideos;
 
 
     // Get the unmatched youtube videos
     const unmatchedYoutubeVideos = youtubeVideosArray.filter(
-        (youtubeVideo) => {
-          return !matchedNebulaVideosArray.some(
+        (youtubeVideo: YoutubeVideo) => {
+          return !matchedNebulaVideos.some(
               (nebulaVideo) => {
                 return youtubeVideo.youtubeVideoId ===
                      nebulaVideo.youtubeVideoId;
@@ -74,13 +76,13 @@ const generateTable = functions.https.onRequest(async (
     unmatched: ${unmatchedYoutubeVideos.length}`);
     // Create Channel Entry
     const channelEntry: ChannelEntry = {
-      matched: matchedNebulaVideosArray.map(
+      matched: matchedNebulaVideos.map(
           (nebulaVideo) => {
             return nebulaVideo.youtubeVideoId;
           }
       ),
       not_matched: unmatchedYoutubeVideos.map(
-          (youtubeVideo) => {
+          (youtubeVideo: YoutubeVideo) => {
             return youtubeVideo.youtubeVideoId;
           }
       ),
@@ -100,6 +102,7 @@ const generateTable = functions.https.onRequest(async (
   const lookupTableRef = admin.firestore().collection("lookupTables");
   await lookupTableRef.doc(lookupTable.id).create(lookupTable);
   console.log("table: Lookup table generated");
+  res.status(200).send("table: Lookup table generated");
   return;
 }
 );

@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import Fuse from "fuse.js";
+import {NebulaVideo, YoutubeVideo} from "../types";
 
 
 const match = functions.https.onRequest(
@@ -32,15 +33,29 @@ const match = functions.https.onRequest(
           res.status(400).send("Channel not found");
           return;
         }
+        const channelDoc = await channelRef.get();
+        const channelData = channelDoc.data();
+
+        if (channelData === undefined) {
+          res.status(400).send("Channel data is undefined");
+          return;
+        } else if (channelData.nebulaVideos === undefined ||
+           channelData.nebulaVideos.length === 0) {
+          res.status(400).send("No nebula videos yet");
+          return;
+        } else if (channelData.youtubeVideos === undefined ||
+           channelData.youtubeVideos.length === 0) {
+          res.status(400).send("No youtube videos yet");
+          return;
+        }
 
         // Get youtube Videos
-        const youtubeVideos = await channelRef.collection("youtubeVideos")
-            .get();
-        const youtubeVideosArray = youtubeVideos.docs.map((doc) => doc.data());
-
+        const youtubeVideosArray: YoutubeVideo[] = channelData.youtubeVideos;
+        console.log("youtubeVideosArray: ", youtubeVideosArray[0]);
         // Get nebula Videos
-        const nebulaVideos = await channelRef.collection("nebulaVideos").get();
-        const nebulaVideosArray = nebulaVideos.docs.map((doc) => doc.data());
+        let nebulaVideosArray: NebulaVideo[] = channelData.nebulaVideos;
+        console.log("nebulaVideosArray: ", nebulaVideosArray[0]);
+
 
         console.info(
             `Match: Matching ${youtubeVideosArray.length
@@ -87,43 +102,77 @@ const match = functions.https.onRequest(
           return;
         }
 
-        const existingRef = await admin.firestore().collection("channels").
-            doc(channelSlug).collection("nebulaVideos");
+        console.log("matchedVideos: ", matchedVideos[0].youtubeMatches[0]);
+
+
         // const existingVideos = existingRef.docs.map(doc => doc.data())
         let matchCounter = 0;
         for (const matchSet of matchedVideos) {
           const {nebulaVideo, youtubeMatches} = matchSet;
-
+          console.log("nebulaVideo: ", nebulaVideo.title);
           for (const match of youtubeMatches) {
+            console.log("match: ", match.score);
             const {youtubeVideo, score} = match;
-            if (!score) continue;
+            console.log(score);
+            if (!score) {
+              console.log("No score");
+              continue;
+            }
 
             // Check if any other nebula video is matched to this youtube video
-            const snapshot = await existingRef.where("youtubeVideoId", "==",
-                youtubeVideo.youtubeVideoId).get();
-            if (snapshot.empty) {
-            // If no other nebula video is matched to this youtube video,
-            // add it to the database
-              const videoRef = existingRef.doc(nebulaVideo.nebulaVideoId);
-              await videoRef.update({youtubeVideoId: youtubeVideo.
-                  youtubeVideoId, matchStrength: score, matched: true});
-              matchCounter++;
-            } else {
-            // If another nebula video is matched to this youtube video, compare
-            // the scores and update the database if the new score is lower
-              const videoRef = existingRef.doc(nebulaVideo.nebulaVideoId);
-              const existingVideo = snapshot.docs[0].data();
-              if (existingVideo.matchStrength > score) {
-                await videoRef.update({youtubeVideoId: youtubeVideo.
-                    youtubeVideoId, matchStrength: score, matched: true});
-                matchCounter++;
+            const hasPreviousMatch = nebulaVideosArray.some((nebulaVideo) => {
+              return nebulaVideo.youtubeVideoId === youtubeVideo.youtubeVideoId;
+            });
+
+            if (hasPreviousMatch) {
+              console.log("has previous match");
+              // Compare the scores of the two videos
+              const previousMatch = nebulaVideosArray.find( (nebulaVideo) => {
+                return nebulaVideo.youtubeVideoId === youtubeVideo.
+                    youtubeVideoId;
+              }
+              );
+
+              if (previousMatch !== undefined && previousMatch.
+                  matchStrength !== undefined) {
+                console.log("previous match");
+                if (previousMatch.matchStrength > score ) {
+                // This youtube video is better than the previous match
+                // Remove youtube details from the previous match
+                  console.log("previous match worse");
+                  nebulaVideosArray = nebulaVideosArray.map((x) => (x.
+                      nebulaVideoId === previousMatch.nebulaVideoId ? {...x,
+                        youtubeVideoId: undefined, matched: false,
+                        matchStrength: undefined} : x));
+                } else {
+                  console.log("previous match better");
+                  // This youtube video is worse than the previous match
+                  continue;
+                }
               }
             }
+            // No previous match or this youtube video is better
+            // Add youtube details to the nebula video
+            console.log("setting match");
+            nebulaVideosArray = nebulaVideosArray.map((x) => (x.
+                nebulaVideoId === nebulaVideo.nebulaVideoId ? {...x,
+                  youtubeVideoId: youtubeVideo.youtubeVideoId,
+                  matched: true, matchStrength: score} : x));
+            matchCounter++;
           }
         }
 
-        console.info(`Match: ${matchCounter} matches added`);
-        res.status(200).send(`Match complete: ${matchCounter} matches added`);
+        if (matchCounter === 0) {
+          res.status(200).send("No new matches found");
+          return;
+        } else {
+          await channelRef.update({
+            nebulaVideos: admin.firestore.FieldValue.
+                arrayUnion(...nebulaVideosArray),
+          });
+          res.status(200).send(`Match complete: ${matchCounter} matches added`);
+          return;
+        }
       } catch (error) {
         if (res.headersSent) res.status(500).send(error);
         console.error(error);
