@@ -30,7 +30,7 @@ const uploadTable = functions.https.onRequest(async (
     const octokit = new Octokit({
       auth: process.env.HOST_TOKEN,
     });
-    const anonKit = new Octokit();
+
 
     // Get table from firestore
     const existingTable = await (await admin.firestore()
@@ -61,15 +61,13 @@ const uploadTable = functions.https.onRequest(async (
 
       // Update the table
       console.log("updating with new table");
-      const newTable = await anonKit.rest.repos.createOrUpdateFileContents({
+      const newTable = await octokit.rest.repos.createOrUpdateFileContents({
         owner: "oenu",
         repo: "lookup-table",
         path: "lookup-table.json",
         message: "Update lookup table",
         content: encoded,
         sha: currentTable.data.sha,
-        name: "Anonymous",
-        email: "anon@g.co",
       });
 
       if (newTable.status === 200) {
