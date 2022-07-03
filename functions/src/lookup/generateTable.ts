@@ -7,7 +7,6 @@ const {v4: uuidv4} = require("uuid");
 // Generate lookup table
 export interface LookupTable {
   channels: ChannelEntry[];
-  generatedAt: Date;
   id: string;
 }
 
@@ -94,7 +93,6 @@ const generateTable = functions.https.onRequest(async (
   // Create Lookup Table
   const lookupTable: LookupTable = {
     channels: channelEntries,
-    generatedAt: new Date(),
     id: uuidv4(),
   };
 
